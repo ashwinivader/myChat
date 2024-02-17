@@ -1,4 +1,15 @@
 import streamlit as st
+import requests
+from pydantic import BaseModel
+from uuid import uuid4
+
+
+class QuestionDetails(BaseModel):
+    question_text: str
+    user:str
+    session_id: int
+    talktodata:bool
+
 
 # Set page title and background color
 st.markdown(
@@ -44,6 +55,10 @@ st.sidebar.markdown(
     """,
     unsafe_allow_html=True
 )
+
+
+
+
 talk_to_data = st.sidebar.checkbox("Talk to my data", False, key='toggle')
 
 # If toggle button is True, show file upload button
@@ -87,7 +102,39 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-st.markdown('<div class="text-input-container"><input type="text" placeholder="Ask Question"></div>', unsafe_allow_html=True)
 
-# Add submit button
-st.button("Submit")
+
+
+
+# Text input for asking a question
+userquestion = st.text_input("Ask Question")
+    
+
+
+
+
+if st.button("Submit"):
+    #userquestion = st.text_input("Ask Question")
+    #print()
+    print(talk_to_data)
+    talktodata=talk_to_data
+    question = QuestionDetails(
+    question_text=str(userquestion),
+    user="ashwini",
+    session_id = int(uuid4().int),
+    talktodata=talk_to_data
+    )
+
+    #print(question.json())
+    print(question.dict())
+
+    response = requests.post("http://localhost:8000/submit", json=question.dict())
+    # Check if the request was successful
+    if response.status_code == 200:
+        st.success("Question submitted successfully!")
+    else:
+        st.error("Failed to submit question. Please try again.")
+
+
+
+
