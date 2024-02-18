@@ -43,7 +43,7 @@ async def submit_question(question: QuestionDetails):
         return (response)
 
     else:
-       print("do weaviate one")  
+       print("do weaviate coding here")  
     
 
 def basicQandA(question: QuestionDetails):
