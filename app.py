@@ -9,6 +9,8 @@ class QuestionDetails(BaseModel):
     user:str
     session_id: int
     talktodata:bool
+    history:str
+
 
 
 # Set page title and background color
@@ -34,6 +36,8 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+
 
 # Add title with custom color and center alignment
 st.title("My ChatBot")
@@ -73,11 +77,6 @@ if talk_to_data:
             st.write(file_details)
 
 
-
-# Add Ask Question text input
-#ask_question = st.text_input("Ask Question") 
-
-
 # Add CSS styling for the text input container
 st.markdown(
     """
@@ -108,30 +107,55 @@ st.markdown(
 
 # Text input for asking a question
 userquestion = st.text_input("Ask Question")
-    
-
 
 
 
 if st.button("Submit"):
-    #userquestion = st.text_input("Ask Question")
-    #print()
-    print(talk_to_data)
-    talktodata=talk_to_data
-    question = QuestionDetails(
-    question_text=str(userquestion),
-    user="ashwini",
-    session_id = int(uuid4().int),
-    talktodata=talk_to_data
-    )
+    #talktodata=talk_to_data
+
+    if 'history' in st.session_state:
+        print(st.session_state.history)
+        question = QuestionDetails(
+                   question_text=str(userquestion),
+                   user="ashwini",
+                   session_id = int(uuid4().int),
+                   talktodata=bool(talk_to_data),
+                   history=str(st.session_state.history))
+    else:
+        question = QuestionDetails(
+                   question_text=str(userquestion),
+                   user="ashwini",
+                   session_id = int(uuid4().int),
+                   talktodata=bool(talk_to_data),
+                   history="")
+
+
+    
 
     #print(question.json())
     print(question.dict())
 
+
+    if 'history' not in st.session_state:
+            st.session_state.history=str(question.question_text)
+    else :        
+            st.session_state.history=st.session_state.history+ str(question.question_text)
+
     response = requests.post("http://localhost:8000/submit", json=question.dict())
+    print(response)
     # Check if the request was successful
     if response.status_code == 200:
         st.success("Question submitted successfully!")
+        api_response = response.json()
+        st.write(api_response)
+        st.session_state.history=st.session_state.history+" "+str(api_response["text"])
+        #if 'history' not in st.session_state:
+        #    st.session_state.history=str(api_response["input"])+str(api_response["text"])
+        #else: 
+        #   st.session_state.history=st.session_state.history+ str(api_response["input"])+str(api_response["text"])
+
+
+
     else:
         st.error("Failed to submit question. Please try again.")
 
