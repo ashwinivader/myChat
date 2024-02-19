@@ -9,6 +9,9 @@ from langchain_community.llms import openai
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from utils import pymongoConnect
+import json
+
 
 
 
@@ -29,6 +32,16 @@ class QuestionDetails(BaseModel):
     history:str
  
 
+class mongodata(BaseModel):
+    user:str
+    session_id: str
+    filename:str
+    filesize:str
+    filetype:str
+    weaviateprocess:bool
+    filepath:str  
+
+
 
 @app.post("/submit")
 async def submit_question(question: QuestionDetails):
@@ -37,14 +50,36 @@ async def submit_question(question: QuestionDetails):
     """
     print("Inside submit")
     print(question)
-
     if question.talktodata==False:
         response= basicQandA(question)
         return (response)
-
     else:
        print("do weaviate coding here")  
     
+@app.post("/addtomongo")
+async def AddMongoRecord(data: mongodata):
+    print(data)
+    collection= pymongoConnect("MyDataDetail","mycollection")
+    data=data.dict()
+    inserted_data=collection.insert_one(data)
+    object_id=inserted_data.inserted_id
+    return({"id":str(object_id)})
+
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def basicQandA(question: QuestionDetails):
       print("Do normal llm")
@@ -55,7 +90,6 @@ def basicQandA(question: QuestionDetails):
       response_data = {
           "answer": ans}
       return (response_data)"""
-
 
       #way2      
       """prompt = ChatPromptTemplate.from_messages([
@@ -94,11 +128,13 @@ def basicQandA(question: QuestionDetails):
       else:
          #memory.save_context({"input":question.question_text}, {"output": question.history})
          memory.save_context( {"output": question.history})
-       
+      
       ans=conversation_chain(question.question_text)
       print(ans)
       return (ans)
     
+
+
 
 
 #if __name__ == "__main__":

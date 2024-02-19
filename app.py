@@ -2,6 +2,16 @@ import streamlit as st
 import requests
 from pydantic import BaseModel
 from uuid import uuid4
+import os
+from dotenv import load_dotenv
+from  utils import pymongoConnect,get_files_in_directory,save_files_to_myfiles
+import mimetypes
+
+
+session_id = int(uuid4().int)
+load_dotenv()
+pymongoendpt=os.getenv("pymongodb")
+datafolder=os.getenv("MYFILESDIR")
 
 
 class QuestionDetails(BaseModel):
@@ -12,6 +22,16 @@ class QuestionDetails(BaseModel):
     history:str
 
 
+class mongodata(BaseModel):
+    user:str
+    session_id: str
+    filename:str
+    filesize: str
+    filetype:str 
+    weaviateprocess:bool
+    filepath:str  
+
+ 
 
 # Set page title and background color
 st.markdown(
@@ -36,7 +56,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 
 
 # Add title with custom color and center alignment
@@ -68,13 +87,31 @@ talk_to_data = st.sidebar.checkbox("Talk to my data", False, key='toggle')
 # If toggle button is True, show file upload button
 if talk_to_data:
     st.write("Upload your files for personalise Q and A")
-    uploaded_files = st.file_uploader("Choose files", accept_multiple_files=True)
+    selectedFiles = st.file_uploader("Choose files", accept_multiple_files=True,label_visibility="hidden")
+    save_files_to_myfiles(selectedFiles)
+    #Add meta data to pymongo
+    collection= pymongoConnect("MyDataDetail","mycollection")
+    files_in_directory = get_files_in_directory(datafolder)
+    directory_path = os.path.join(os.path.dirname(__file__), datafolder)
+    files_in_directory = get_files_in_directory(datafolder)
+    for names in  files_in_directory:
+       filename= os.path.basename(names)
+       file_type, _ = mimetypes.guess_type(names)
+       file_size = os.path.getsize(names) 
+       filedata = mongodata(
+                   user="ashwini",
+                   session_id = session_id,
+                   filename=filename,                
+                   filesize=file_size,
+                   filetype=file_type,
+                   weaviateprocess=0,
+                   filepath = os.path.join(directory_path, filename)
+                   )  
+       response = requests.post("http://localhost:8000/addtomongo", json=filedata.dict())
+       print(response)
+       
 
-    # Display uploaded files
-    if uploaded_files:
-        for file in uploaded_files:
-            file_details = {"filename": file.name, "filetype": file.type, "filesize": file.size}
-            st.write(file_details)
+    
 
 
 # Add CSS styling for the text input container
@@ -118,14 +155,14 @@ if st.button("Submit"):
         question = QuestionDetails(
                    question_text=str(userquestion),
                    user="ashwini",
-                   session_id = int(uuid4().int),
+                   session_id = session_id,
                    talktodata=bool(talk_to_data),
                    history=str(st.session_state.history))
     else:
         question = QuestionDetails(
                    question_text=str(userquestion),
                    user="ashwini",
-                   session_id = int(uuid4().int),
+                   session_id = session_id,
                    talktodata=bool(talk_to_data),
                    history="")
 
