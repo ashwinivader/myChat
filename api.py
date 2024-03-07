@@ -9,6 +9,7 @@ from langchain_community.llms import openai
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
+from langchain.chains.conversation.memory import ConversationSummaryMemory
 from utils import pymongoConnect
 import json
 
@@ -51,6 +52,7 @@ async def submit_question(question: QuestionDetails):
     print("Inside submit")
     print(question)
     if question.talktodata==False:
+        print(question)
         response= basicQandA(question)
         return (response)
     else:
@@ -66,15 +68,6 @@ async def AddMongoRecord(data: mongodata):
     return({"id":str(object_id)})
 
     
-
-
-
-
-
-
-
-
-
 
 
 
@@ -107,29 +100,23 @@ def basicQandA(question: QuestionDetails):
           "answer": ans}
       return (response_data)"""
     
-      #conversational chain    
-      memory= ConversationBufferMemory()
-      #history=question.history
+      # way3 using history passed in brower   
+      history=question.history
+      input=question.question_text
       print("*************history*******************")
-      #print(history)
-      # Define the prompt template
-      prompt_template = PromptTemplate(
-         input_variables=["history","input"],
-         template="""You are a conversational AI bot. Maintain a formal tone in your answers.
-         Conversational history: {history}
-         Human: {input}
-          AI: 
-          """
-          )
+      print(question)
+      # create prompt template which is history of context and input
+      prompt_template =f"""You are a conversational AI bot. Maintain a formal tone in your answers.
+         Context of the communication is : {history}.
+         Using this context provide summarised answer to the below quesion. 
+         Question: {input}
+         if question is not related to context
+         provided ignore the context and use your knowlege and answer in short.
+        """
+      print(prompt_template)
       llm=OpenAI(api_key=os.getenv("OPENAI_KEY"),temperature=0)
-      conversation_chain=LLMChain(llm=llm,prompt=prompt_template,memory=memory,verbose=True)
-      if len(question.history) ==0:
-         memory.save_context({"input":question.question_text}, {"output": ""})
-      else:
-         #memory.save_context({"input":question.question_text}, {"output": question.history})
-         memory.save_context( {"output": question.history})
-      
-      ans=conversation_chain(question.question_text)
+      ans=llm.invoke(prompt_template)
+      model=None      
       print(ans)
       return (ans)
     

@@ -11,6 +11,8 @@ pymongoendpt=os.getenv("pymongodb")
 datafolder=os.getenv("MYFILESDIR")
 
 
+
+
 def save_files_to_myfiles(uploaded_files):
     # Display uploaded files
     if uploaded_files:
@@ -50,6 +52,8 @@ def get_files_in_directory(directory):
         for filename in filenames:
             files.append(os.path.join(root, filename)) 
     return files
+     
+
      
 
 

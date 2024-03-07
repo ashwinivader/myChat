@@ -110,6 +110,7 @@ if talk_to_data:
        response = requests.post("http://localhost:8000/addtomongo", json=filedata.dict())
        print(response)
        
+       
 
     
 
@@ -164,7 +165,7 @@ if st.button("Submit"):
                    user="ashwini",
                    session_id = session_id,
                    talktodata=bool(talk_to_data),
-                   history="")
+                   history=" ")
 
 
     
@@ -182,17 +183,11 @@ if st.button("Submit"):
     print(response)
     # Check if the request was successful
     if response.status_code == 200:
+        print(response)
         st.success("Question submitted successfully!")
         api_response = response.json()
         st.write(api_response)
-        st.session_state.history=st.session_state.history+" "+str(api_response["text"])
-        #if 'history' not in st.session_state:
-        #    st.session_state.history=str(api_response["input"])+str(api_response["text"])
-        #else: 
-        #   st.session_state.history=st.session_state.history+ str(api_response["input"])+str(api_response["text"])
-
-
-
+        st.session_state.history=st.session_state.history+" "+ api_response[int(len(api_response) * 0.70):]
     else:
         st.error("Failed to submit question. Please try again.")
 
