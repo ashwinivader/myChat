@@ -39,13 +39,13 @@ prompt_template = PromptTemplate(
     AI: 
     """,
 )
-
-
 llm=OpenAI(api_key=os.getenv("OPENAI_KEY"),temperature=0)
 conversation_chain=LLMChain(llm=llm,prompt=prompt_template,memory=memory,verbose=True)
 
 print(conversation_chain("hi"))
 print(conversation_chain("how are you"))
 print(conversation_chain("Tell me"))
+
+
 if __name__ == "__main__":
     main()

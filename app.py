@@ -4,34 +4,24 @@ from pydantic import BaseModel
 from uuid import uuid4
 import os
 from dotenv import load_dotenv
-from  utils import pymongoConnect,get_files_in_directory,save_files_to_myfiles
+from  utils import pymongoConnect,get_files,save_files
 import mimetypes
+from datamodels import QuestionDetails,mongodata,UpdateTableRequest
+from langchain_openai import ChatOpenAI,OpenAI
+from sql import sqlcreate
+import sqlalchemy
+from pandasai.llm.openai import OpenAI  
+from pandasai import SmartDataframe
+import pandas as pd
+from pandasai.connectors import MySQLConnector
+from chat import mychat
 
 
-session_id = int(uuid4().int)
+
 load_dotenv()
 pymongoendpt=os.getenv("pymongodb")
 datafolder=os.getenv("MYFILESDIR")
 
-
-class QuestionDetails(BaseModel):
-    question_text: str
-    user:str
-    session_id: int
-    talktodata:bool
-    history:str
-
-
-class mongodata(BaseModel):
-    user:str
-    session_id: str
-    filename:str
-    filesize: str
-    filetype:str 
-    weaviateprocess:bool
-    filepath:str  
-
- 
 
 # Set page title and background color
 st.markdown(
@@ -79,36 +69,52 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-
-
-
 talk_to_data = st.sidebar.checkbox("Talk to my data", False, key='toggle')
+session_id = int(uuid4().int)
 
 # If toggle button is True, show file upload button
-if talk_to_data:
-    st.write("Upload your files for personalise Q and A")
-    selectedFiles = st.file_uploader("Choose files", accept_multiple_files=True,label_visibility="hidden")
-    save_files_to_myfiles(selectedFiles)
-    #Add meta data to pymongo
-    collection= pymongoConnect("MyDataDetail","mycollection")
-    files_in_directory = get_files_in_directory(datafolder)
-    directory_path = os.path.join(os.path.dirname(__file__), datafolder)
-    files_in_directory = get_files_in_directory(datafolder)
-    for names in  files_in_directory:
-       filename= os.path.basename(names)
-       file_type, _ = mimetypes.guess_type(names)
-       file_size = os.path.getsize(names) 
-       filedata = mongodata(
+if talk_to_data==True:
+    talk_to_data=False
+    st.write("Upload your file for on personalise Q and A")
+    selectedFiles = st.file_uploader("Choose files", accept_multiple_files=False,label_visibility="hidden")
+    if selectedFiles is not None:
+       save_files(selectedFiles)
+       files_in_directory = get_files(datafolder)
+       print("========Files=================")
+       print(files_in_directory)
+       for names in  files_in_directory:
+            filename= os.path.basename(names)
+            file_type, _ = mimetypes.guess_type(names)
+            file_size = os.path.getsize(names) 
+            filedata = mongodata(
                    user="ashwini",
-                   session_id = session_id,
                    filename=filename,                
                    filesize=file_size,
                    filetype=file_type,
                    weaviateprocess=0,
-                   filepath = os.path.join(directory_path, filename)
+                   filepath = os.path.join(os.path.join(os.path.dirname(__file__), datafolder), filename),
+                   sqltablename="",
+                   sessionid=str(session_id),
+                   dbname="ashwini"
                    )  
-       response = requests.post("http://localhost:8000/addtomongo", json=filedata.dict())
-       print(response)
+            response = requests.post("http://localhost:8000/addtomongo", json=filedata.dict())
+            print(response)
+            if response.status_code==200 :
+                sqloperation=sqlcreate("ashwini")
+                df=sqloperation.create_dataframe_from_excel(filedata.filepath)
+                tbname= os.path.splitext(os.path.basename(filename))[0]
+                print("++++++++++++++++filename+++++++++++++++++++++")
+                print(filename)
+                #filepath=os.path.join(os.path.join(os.path.dirname(__file__), datafolder), filename)
+                tbname=sqloperation.create_table(df,tbname)
+                print(filename,filedata.user,tbname)
+                UpdateTableRequest(filename=filename,user=filedata.user,sqltablename=tbname)
+                response = requests.post("http://localhost:8000/updatetables", json=UpdateTableRequest(filename=filename,user=filedata.user,sqltablename=tbname).dict())
+                chat=mychat(filedata.user)
+
+
+
+            
        
        
 
@@ -145,34 +151,24 @@ st.markdown(
 
 # Text input for asking a question
 userquestion = st.text_input("Ask Question")
-
-
-
 if st.button("Submit"):
-    #talktodata=talk_to_data
-
     if 'history' in st.session_state:
         print(st.session_state.history)
         question = QuestionDetails(
                    question_text=str(userquestion),
                    user="ashwini",
-                   session_id = session_id,
                    talktodata=bool(talk_to_data),
-                   history=str(st.session_state.history))
+                   history=str(st.session_state.history),
+                   sessionid=session_id)
     else:
         question = QuestionDetails(
                    question_text=str(userquestion),
                    user="ashwini",
-                   session_id = session_id,
                    talktodata=bool(talk_to_data),
-                   history=" ")
-
-
-    
-
+                   history="",
+                   sessionid=session_id)
     #print(question.json())
     print(question.dict())
-
 
     if 'history' not in st.session_state:
             st.session_state.history=str(question.question_text)
@@ -188,6 +184,7 @@ if st.button("Submit"):
         api_response = response.json()
         st.write(api_response)
         st.session_state.history=st.session_state.history+" "+ api_response[int(len(api_response) * 0.70):]
+
     else:
         st.error("Failed to submit question. Please try again.")
 
